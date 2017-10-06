@@ -434,7 +434,6 @@ private:
     const pandora::Pandora *const   m_pPandora;                 ///< The associated pandora instance
     TApplication                   *m_pApplication;             ///< The root application
     TEveManager                    *m_pEveManager;              ///< The eve manager
-    TEveManager                    *m_pEveManager2D;            ///< The eve manager for 2D hits
     TTreeWrapper                   *m_pTreeWrapper;             ///< wrapper around TTree functionality
 
     TEveViewer                     *m_p3DView;                  ///< Viewer for the 3D view

@@ -78,9 +78,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <TEveProjectionManager.h>
-#include <TEveProjectionAxes.h>
-
 using namespace pandora;
 
 namespace pandora_monitoring
@@ -202,7 +199,7 @@ void PandoraMonitoring::SaveTree(const std::string &treeName, const std::string 
        pTTree->Write(TString(treeName.c_str()), TObject::kOverwrite);
 
        pTFile->Close();
-       pTTree = NULL; // pointer not valid any more
+       pTTree = nullptr; // pointer not valid any more
        delete pTFile;
     }
     catch(TTreeWrapper::TreeNotFoundError& excpt)
@@ -331,10 +328,8 @@ TEveElement *PandoraMonitoring::VisualizeMCParticles(const MCParticleList *const
         pTEveTrackPropagator->SetMaxZ(zMax - zMin);
     }
 
-    for (MCParticleVector::const_iterator iter = mcParticleVector.begin(), iterEnd = mcParticleVector.end(); iter != iterEnd; ++iter)
+    for (const MCParticle *const pPandoraMCParticle : mcParticleVector)
     {
-        const MCParticle *pPandoraMCParticle(*iter);
-
         // Does particle pass suppression conditions?
         const int particleId(pPandoraMCParticle->GetParticleId());
         const float energy(pPandoraMCParticle->GetEnergy());
@@ -432,10 +427,8 @@ TEveElement *PandoraMonitoring::VisualizeTracks(const TrackList *const pTrackLis
     try {pTEveTrackPropagator->SetMaxZ(std::fabs(m_pPandora->GetGeometry()->GetSubDetector(ECAL_ENDCAP).GetOuterZCoordinate()) * m_scalingFactor);}
     catch (StatusCodeException &) {}
 
-    for (TrackVector::const_iterator iter = trackVector.begin(), iterEnd = trackVector.end(); iter != iterEnd; ++iter)
+    for (const Track *const pPandoraTrack : trackVector)
     {
-        const Track *pPandoraTrack(*iter);
-
         const CartesianVector &momentum(pPandoraTrack->GetTrackStateAtStart().GetMomentum());
         const int charge(pPandoraTrack->GetCharge());
         const Color trackColor((color < AUTO) ? color : (charge == 0) ? AZURE : (charge > 0) ? RED : GREEN);
@@ -515,7 +508,7 @@ TEveElement *PandoraMonitoring::VisualizeCaloHits(const CaloHitList *const pCalo
 
     bool isU(false), isV(false), isW(false);
 
-    if (pCaloHitList->size() > 0)
+    if (!pCaloHitList->empty())
     {
         HitType hitType(pCaloHitList->front()->GetHitType());
 
@@ -564,9 +557,8 @@ TEveElement *PandoraMonitoring::VisualizeCaloHits(const CaloHitList *const pCalo
 
     try
     {
-        for (CaloHitList::const_iterator iter = pCaloHitList->begin(), iterEnd = pCaloHitList->end(); iter != iterEnd; ++iter)
+        for (const CaloHit *const pCaloHit : *pCaloHitList)
         {
-            const CaloHit *pCaloHit(*iter);
             HitType hitType(pCaloHit->GetHitType());
 
             if ((isU && TPC_VIEW_U != hitType) || (isV && TPC_VIEW_V != hitType) || (isW && TPC_VIEW_W != hitType))
@@ -645,7 +637,7 @@ TEveElement *PandoraMonitoring::VisualizeCaloHits(const CaloHitList *const pCalo
             hits->DigitColor(hitColor, transparency);
         }
     }
-    catch (StatusCodeException &)
+    catch (const StatusCodeException &)
     {
         std::cout << "PandoraMonitoring::VisualizeCaloHits, error: CaloHitList contains hits from multiple views."  << std::endl;
     }
@@ -726,10 +718,8 @@ TEveElement *PandoraMonitoring::VisualizeClusters(const ClusterList *const pClus
     TEveElement *pClusterVectorElement = new TEveElementList();
     pClusterVectorElement->SetElementNameTitle(clusterListName.c_str(), clusterListTitle.c_str());
 
-    for (ClusterVector::const_iterator iter = clusterVector.begin(), iterEnd = clusterVector.end(); iter != iterEnd; ++iter)
+    for (const Cluster *const pCluster : clusterVector)
     {
-        const Cluster *pCluster(*iter);
-
         if (pCluster->GetNCaloHits() == 0)
             continue;
 
@@ -781,10 +771,8 @@ TEveElement *PandoraMonitoring::VisualizeParticleFlowObjects(const PfoList *cons
     TEveElement *pPfoVectorElement = new TEveElementList();
     pPfoVectorElement->SetElementNameTitle(pfoListName.c_str(), pfoListTitle.c_str());
 
-    for (PfoVector::const_iterator iter = pfoVector.begin(), iterEnd = pfoVector.end(); iter != iterEnd; ++iter)
+    for (const ParticleFlowObject *const pPfo : pfoVector)
     {
-        const ParticleFlowObject *pPfo(*iter);
-
         if (displayPfoHierarchy && !parent && (pPfo->GetNParentPfos() != 0))
             continue;
 
@@ -844,9 +832,18 @@ TEveElement *PandoraMonitoring::VisualizeVertices(const pandora::VertexList *con
 
     try
     {
-        for (VertexList::const_iterator iter = pVertexList->begin(), iterEnd = pVertexList->end(); iter != iterEnd; ++iter)
+        if (pVertexList->empty())
+            throw StatusCodeException(STATUS_CODE_NOT_FOUND);
+    }
+    catch (const StatusCodeException &)
+    {
+        std::cout << "PandoraMonitoring::VisualizeVertices, error: VertexList is empty."  << std::endl; 
+    }
+
+    try
+    {
+        for (const Vertex *const pVertex : *pVertexList)
         {
-            const Vertex *pVertex = *iter;
             const CartesianVector &vertexPosition(pVertex->GetPosition());
             VertexType vertexType(pVertex->GetVertexType());
 
@@ -872,7 +869,7 @@ TEveElement *PandoraMonitoring::VisualizeVertices(const pandora::VertexList *con
             pTEvePointSet->AddElement(pTEvePointSetMarker);
         }
     }
-    catch (StatusCodeException &)
+    catch (const StatusCodeException &)
     {
         std::cout << "PandoraMonitoring::VisualizeVertices, error: VertexList contains verticess from multiple views."  << std::endl; 
     }
@@ -1047,10 +1044,21 @@ bool PandoraMonitoring::SortPfosByEnergy(const ParticleFlowObject *const pLhs, c
 
 PandoraMonitoring::PandoraMonitoring(const Pandora &pandora) :
     m_pPandora(&pandora),
-    m_pApplication(NULL),
-    m_pEveManager(NULL),
-    m_pEveManager2D(NULL),
-    m_pTreeWrapper(NULL),
+    m_pApplication(nullptr),
+    m_pEveManager(nullptr),
+    m_pTreeWrapper(nullptr),
+    m_p3DView(nullptr),
+    m_p2DUView(nullptr),
+    m_p2DVView(nullptr),
+    m_p2DWView(nullptr),
+    m_p3DEventScene(nullptr),
+    m_p2DUEventScene(nullptr),
+    m_p2DVEventScene(nullptr),
+    m_p2DWEventScene(nullptr),
+    m_p3DGeometryScene(nullptr),
+    m_p2DUGeometryScene(nullptr),
+    m_p2DVGeometryScene(nullptr),
+    m_p2DWGeometryScene(nullptr),
     m_scalingFactor(0.1f),
     m_openEveEvent(false),
     m_eventDisplayCounter(0.f),
@@ -1089,7 +1097,7 @@ PandoraMonitoring::~PandoraMonitoring()
 {
     delete m_pTreeWrapper;
 
-    if (NULL != m_pEveManager)
+    if (nullptr != m_pEveManager)
     {
         delete m_pEveManager;
         gSystem->ProcessEvents();
@@ -1111,9 +1119,8 @@ void PandoraMonitoring::MakeCaloHitCell(const CaloHit *const pCaloHit, float cor
 
     unsigned int counter(0);
 
-    for (CartesianPointVector::iterator iter = cartesianPointVector.begin(), iterEnd = cartesianPointVector.end(); iter != iterEnd; ++iter)
+    for (CartesianVector &corner : cartesianPointVector)
     {
-        CartesianVector &corner = *iter;
         corner *= m_scalingFactor;
         corners[counter++] = corner.GetX();
         corners[counter++] = corner.GetY();
@@ -1229,14 +1236,14 @@ std::string PandoraMonitoring::GetHitTypeString(const pandora::HitType hitType) 
 
 void PandoraMonitoring::InitializeEve(Char_t transparency)
 {
-    if (NULL == m_pEveManager)
+    if (nullptr == m_pEveManager)
     {
         try
         {
             std::cout << "PandoraMonitoring::InitializeEve(): ";
             const char *pDisplay(::getenv("DISPLAY"));
 
-            if (NULL == pDisplay)
+            if (nullptr == pDisplay)
             {
                 std::cout << "DISPLAY environment not set" << std::endl;
             }
@@ -1266,7 +1273,7 @@ void PandoraMonitoring::InitializeEve(Char_t transparency)
             }
         }
 
-        if (NULL == m_pEveManager)
+        if (nullptr == m_pEveManager)
         {
             std::cout << "PandoraMonitoring, unable to create TEveManager. Bailing." << std::endl;
             throw std::exception();
@@ -1276,14 +1283,14 @@ void PandoraMonitoring::InitializeEve(Char_t transparency)
 
         if (m_showDetectors && (!m_pPandora->GetGeometry()->GetSubDetectorMap().empty() || !m_pPandora->GetGeometry()->GetDetectorGapList().empty()))
         {
-            TGeoManager *pGeoManager = (NULL != gGeoManager) ? gGeoManager : new TGeoManager("DetectorGeometry", "detector geometry");
+            TGeoManager *pGeoManager = (nullptr != gGeoManager) ? gGeoManager : new TGeoManager("DetectorGeometry", "detector geometry");
 
             TGeoMaterial *pVacuumMaterial = new TGeoMaterial("Vacuum", 0, 0, 0); // dummy material
             TGeoMaterial *pAluminiumMaterial = new TGeoMaterial("Aluminium", 26.98, 13, 2.7); // dummy material
             TGeoMedium *pVacuum = new TGeoMedium("Vacuum", 1, pVacuumMaterial);
             TGeoMedium *pAluminium = new TGeoMedium("Aluminium", 2, pAluminiumMaterial);
 
-            const bool pandoraTopVolumeExists((NULL != pGeoManager->GetTopVolume()) && (m_monitoringInstanceMap.size() > 1));
+            const bool pandoraTopVolumeExists((nullptr != pGeoManager->GetTopVolume()) && (m_monitoringInstanceMap.size() > 1));
             TGeoVolume *pMainDetectorVolume = pandoraTopVolumeExists ? pGeoManager->GetTopVolume() : pGeoManager->MakeBox("Detector", pVacuum, 1000., 1000., 1000.);
 
             this->InitializeSubDetectors(pMainDetectorVolume, pAluminium, transparency);
@@ -1451,25 +1458,17 @@ void PandoraMonitoring::InitializeLArTPCs(TGeoVolume *pMainDetectorVolume, TGeoM
     int color(4);
     for (auto &iter : larTPCMap)
     {
-        const std::string name(iter.first);
+        const std::string &name(iter.first);
         const LArTPC *const pLArTPC(iter.second);
 
-        TGeoVolume *pLArTPCVol = nullptr;
+        TGeoVolume *pLArTPCVol(nullptr);
 
-        const float xCenter(pLArTPC->GetCenterX());
-        const float yCenter(pLArTPC->GetCenterY());
-        const float zCenter(pLArTPC->GetCenterZ());
-
-        const float xWidth(pLArTPC->GetWidthX());
-        const float yWidth(pLArTPC->GetWidthY());
-        const float zWidth(pLArTPC->GetWidthZ());
-
-        const float maxXLArTPC((xWidth/2.f) + xCenter); 
-        const float minXLArTPC(-(xWidth/2.f) + xCenter); 
-        const float maxYLArTPC((yWidth/2.f) + yCenter); 
-        const float minYLArTPC(-(yWidth/2.f) + yCenter); 
-        const float maxZLArTPC((zWidth/2.f) + zCenter); 
-        const float minZLArTPC(-(zWidth/2.f) + zCenter); 
+        const float maxXLArTPC((pLArTPC->GetWidthX()/2.f) + pLArTPC->GetCenterX()); 
+        const float minXLArTPC(-(pLArTPC->GetWidthX()/2.f) + pLArTPC->GetCenterX()); 
+        const float maxYLArTPC((pLArTPC->GetWidthY()/2.f) + pLArTPC->GetCenterY()); 
+        const float minYLArTPC(-(pLArTPC->GetWidthY()/2.f) + pLArTPC->GetCenterY()); 
+        const float maxZLArTPC((pLArTPC->GetWidthZ()/2.f) + pLArTPC->GetCenterZ()); 
+        const float minZLArTPC(-(pLArTPC->GetWidthZ()/2.f) + pLArTPC->GetCenterZ()); 
 
         if (m_maxXLArTPC > maxXLArTPC)
             m_maxXLArTPC = maxXLArTPC;
@@ -1489,13 +1488,13 @@ void PandoraMonitoring::InitializeLArTPCs(TGeoVolume *pMainDetectorVolume, TGeoM
         if (m_minZLArTPC < minZLArTPC)
             m_minZLArTPC = minZLArTPC;
 
-        TGeoBBox *pTGeoBBox = new TGeoBBox((name + "_shape").c_str(), (xWidth/2.f), (yWidth/2.f), (zWidth/2.f));
+        TGeoBBox *pTGeoBBox = new TGeoBBox((name + "_shape").c_str(), (pLArTPC->GetWidthX()/2.f), (pLArTPC->GetWidthY()/2.f), (pLArTPC->GetWidthZ()/2.f));
         pLArTPCVol = new TGeoVolume(name.c_str(), pTGeoBBox, pLArTPCMedium);
         pLArTPCVol->SetLineColor(GetROOTColor(Color(color)));
         pLArTPCVol->SetFillColor(GetROOTColor(Color(color)));
         pLArTPCVol->SetTransparency(transparency);
 
-        pMainDetectorVolume->AddNode(pLArTPCVol, 0, new TGeoTranslation(xCenter, yCenter, zCenter));
+        pMainDetectorVolume->AddNode(pLArTPCVol, 0, new TGeoTranslation(pLArTPC->GetCenterX(), pLArTPC->GetCenterY(), pLArTPC->GetCenterZ()));
         color++;
    } 
 }
@@ -1537,7 +1536,7 @@ void PandoraMonitoring::InitializeSubDetectors(TGeoVolume *pMainDetectorVolume, 
             sstr << name;
             sstr << (isLeft? "_left" : "_right");
 
-            TGeoVolume *pSubDetVol = NULL;
+            TGeoVolume *pSubDetVol = nullptr;
 
             const int sign(isLeft ? -1 : 1);
             double zMin = pSubDetector->GetInnerZCoordinate() * m_scalingFactor;
@@ -1576,15 +1575,15 @@ void PandoraMonitoring::InitializeGaps(TGeoVolume *pMainDetectorVolume, TGeoMedi
 
     for (DetectorGapList::const_iterator iter = detectorGapList.begin(), iterEnd = detectorGapList.end(); iter != iterEnd; ++iter)
     {
-        const LineGap *pLineGap = NULL;
+        const LineGap *pLineGap = nullptr;
         pLineGap = dynamic_cast<const LineGap *>(*iter);
         if (pLineGap) lineGapVector.push_back(pLineGap);
 
-        const BoxGap *pBoxGap = NULL;
+        const BoxGap *pBoxGap = nullptr;
         pBoxGap = dynamic_cast<const BoxGap *>(*iter);
         if (pBoxGap) boxGapVector.push_back(pBoxGap);
 
-        const ConcentricGap *pConcentricGap = NULL;
+        const ConcentricGap *pConcentricGap = nullptr;
         pConcentricGap = dynamic_cast<const ConcentricGap *>(*iter);
         if (pConcentricGap) concentricGapVector.push_back(pConcentricGap);
     }
