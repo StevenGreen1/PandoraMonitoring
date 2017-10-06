@@ -1253,7 +1253,6 @@ void PandoraMonitoring::InitializeEve(Char_t transparency)
             }
 
             m_pEveManager = TEveManager::Create();
-
         }
         catch (TEveException &tEveException1)
         {
